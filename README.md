@@ -1,0 +1,13 @@
+# 漸進式委員會佔領攻擊與激勵相容防禦：區塊鏈聯邦學習的安全性研究
+# Progressive Committee Capture Attack and Incentive-Compatible Defense: Security Analysis for Blockchain-based Federated Learning
+
+## 摘要 (Abstract)
+
+**Abstract**—Blockchain-based Federated Learning (BCFL) addresses trust and privacy concerns through decentralized consensus mechanisms. Existing BCFL systems rely on committee-based validation architectures, assuming that committee members are honest or possess an honest majority. This assumption is vulnerable to verifier collusion, where attackers can dominate committees by accumulating stake. We identify a novel threat called Progressive Committee Capture Attack (PCCA), in which rational attackers exploit incentive mechanisms to gradually accumulate stake and occupy sufficient committee seats to launch coordinated attacks. Once an attacker obtains a committee majority, existing architectures fail to detect or prevent such attacks. To defend against PCCA, we propose Audit-driven Committee BlockDFL (AC-BlockDFL), which decouples security from committee composition: a small committee handles routine validation to provide liveness, while a challenge mechanism supported by global consensus ensures security guarantees. Any malicious aggregation behavior triggers cryptographic verification and slashing penalties, resulting in the immediate confiscation of all staked assets from the colluding committee members. This mechanism shifts the security threshold from a committee majority to global consensus, breaking the positive feedback loop of stake accumulation relied upon by attackers. In a long-term simulation experiment of 2000 rounds, this mechanism suppressed the number of successful attacks from 107 to 5, achieving over 20 times the attack suppression effect compared to existing methods. Our decoupled design also allows for smaller committee sizes, enhancing computational efficiency without compromising security.
+
+**Keywords**—Blockchain, Federated Learning, Committee Capture, Verifier Collusion
+
+**摘要**—基於區塊鏈的聯邦式學習 (BCFL) 透過去中心化共識機制解決了信任與隱私問題。現有的 BCFL 系統依賴基於委員會的驗證機制，並假設委員會成員是誠實的或擁有誠實多數。此假設容易受到驗證者共謀的威脅，攻擊者可透過累積權益 (Stake) 來主導委員會。我們識別出一種新型威脅——漸進式委員會佔領攻擊 (PCCA)，理性攻擊者利用激勵機制逐步累積權益，並佔領足夠的委員會席次以發動協同攻擊。一旦攻擊者取得委員會多數席次，現有的委員會架構便無法偵測或防範此類攻擊。為防禦 PCCA，我們提出一種審計驅動型委員會 BlockDFL (AC-BlockDFL)，將安全性與委員會組成解耦：由小型委員會負責例行驗證以提供活性 (Liveness)，而由全域共識支持的挑戰機制提供安全性保證。任何惡意聚合行為都將觸發密碼學驗證與罰沒懲罰，立即沒收參與共謀的委員會成員之全額質押。此機制將安全門檻從委員會多數轉移至全網共識，打破攻擊者依賴的權益累積正反饋循環。在 2000 輪的長期模擬實驗中，本機制將攻擊發生次數從 107 次壓制至 5 次，相較於現有方法實現超過 20 倍的攻擊抑制效果。我們的解耦設計亦允許更小的委員會規模，在不犧牲安全性的前提下提升運算效率。
+
+**關鍵詞**—區塊鏈、聯邦式學習、委員會佔領、驗證者共謀
+---

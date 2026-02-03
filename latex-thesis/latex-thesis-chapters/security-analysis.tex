@@ -1,0 +1,98 @@
+\section{Security and Economic Analysis}
+\label{sec:security_analysis}
+
+The security of \textsc{AC-BlockDFL} rests on a dual-layer trust model that achieves network-wide security guarantees while maintaining committee-scale efficiency. This section formalizes these guarantees through three theorems and establishes incentive compatibility via game-theoretic analysis.
+
+\subsection{Security Guarantees}
+\label{sec:security_guarantees}
+
+Our security model comprises two layers with distinct trust assumptions: a \emph{detection layer} requiring only a single honest challenger, and an \emph{arbitration layer} leveraging standard Byzantine fault tolerance.
+
+\paragraph{Detection Layer: 1-of-$N$ Honest Assumption.}
+The detection layer operates under an exceptionally weak assumption: among all $N$ network participants, at least one honest node is willing to act as a challenger. This is substantially weaker than the $2/3$ honest majority required by traditional BFT systems, as it requires only the \emph{existence} of a single honest participant rather than coordinated action by a majority. The feasibility of this assumption stems from blockchain's transparency---all proposal CIDs are recorded on-chain with corresponding data publicly accessible via IPFS, enabling any node to independently verify committee decisions.
+
+\begin{theorem}[Detection Completeness]
+\label{thm:detection_completeness}
+Let $\mathcal{V}_r$ denote the verification committee for round $r$, $\mathrm{Krum}(\{p_a\})$ be the deterministic correct result of executing Krum over all aggregation proposals, and $w_{r+1}$ be the global update actually committed by the committee. If $w_{r+1} \neq \mathrm{Krum}(\{p_a\})$ and there exists at least one honest node $c^*$ among all $N$ participants willing to act as challenger, then this deviation is necessarily detected.
+\end{theorem}
+
+\begin{proof}
+The proof relies on Krum's determinism and the public verifiability of on-chain data. Given identical inputs $\{p_a\}$, any executor obtains the unique output $\mathrm{Krum}(\{p_a\})$ regardless of identity or location. Since all proposal CIDs are recorded on-chain during committee consensus and corresponding data is accessible via IPFS, the honest challenger $c^*$ can: (1) retrieve the identical input set $\{p_a\}$ from IPFS, (2) independently execute Krum locally to obtain $\mathrm{Krum}(\{p_a\})$, and (3) compare against the committed $w_{r+1}$. Any discrepancy constitutes verifiable proof of deviation, enabling $c^*$ to submit a valid challenge transaction. Since verification depends solely on publicly accessible on-chain CIDs, IPFS data, and deterministic computation, the committee cannot evade detection through information hiding or ambiguity.
+\end{proof}
+
+\paragraph{Arbitration Layer: Global $2/3$ Honest Assumption.}
+When a challenge is initiated, adjudication authority transfers from the committee to the entire network under standard BFT assumptions: honest nodes must exceed $2/3$ of total nodes, i.e., $N_{\text{total}} > 3f$ where $f$ is the number of Byzantine nodes. During arbitration, all validators download relevant proposals via IPFS, re-execute Krum, and vote on challenge validity through PBFT consensus.
+
+\begin{theorem}[Punishment Certainty]
+\label{thm:punishment_certainty}
+Let $N_{\text{total}}$ be the total network nodes with Byzantine count $f$ satisfying $N_{\text{total}} > 3f$. If a challenger successfully detects committee misbehavior per Theorem~\ref{thm:detection_completeness} and submits a valid challenge transaction, then the misbehavior is necessarily confirmed during arbitration, and all colluding committee members suffer complete stake slashing.
+\end{theorem}
+
+\begin{proof}
+Upon challenge submission, the smart contract retrieves all proposal CIDs for the disputed round and triggers network-wide re-verification. By Krum's determinism, all honest validators compute identical correct results $\mathrm{Krum}(\{p_a\})$ and can determine whether $w_{r+1}$ deviates. Under $N_{\text{total}} > 3f$, at least $N_{\text{total}} - f > 2N_{\text{total}}/3$ honest nodes participate in arbitration voting. These honest nodes, based on identical deterministic computation, unanimously vote to confirm the deviation. Since PBFT requires $>2/3$ agreement and honest nodes exceed this threshold, arbitration consensus necessarily succeeds. The smart contract then automatically executes predefined slashing logic, confiscating the full stake of all committee members who endorsed the deviant result. This execution is guaranteed by smart contract determinism and immune to external interference.
+\end{proof}
+
+Theorems~\ref{thm:detection_completeness} and~\ref{thm:punishment_certainty} jointly establish the complete security logic: the former ensures misbehavior is \emph{necessarily discovered}, the latter ensures discovered misbehavior is \emph{necessarily punished}. This dual certainty forms the logical foundation for economic security.
+
+\subsection{Cost of Attack}
+\label{sec:attack_cost}
+
+We now formalize the capital threshold an attacker must surpass to execute a profitable attack while evading punishment. Two distinct barriers must be overcome: (1) probabilistically winning $>2/3$ committee seats via random election, and (2) deterministically controlling $\geq 1/3$ of network voting power to block arbitration.
+
+\begin{theorem}[Attack Cost Lower Bound]
+\label{thm:attack_cost_bound}
+In \textsc{AC-BlockDFL}, an attacker seeking to execute a malicious committee decision while completely evading economic punishment must control stake capital satisfying:
+\begin{equation}
+\mathrm{Cost}_{\mathrm{total}} \geq \frac{1}{3} N \cdot \bar{s}
+\label{eq:attack_cost}
+\end{equation}
+where $N$ is the total network size and $\bar{s}$ is the average stake per node. Even with this capital, the attacker must still probabilistically obtain $>2/3$ committee seats through random election.
+\end{theorem}
+
+\begin{proof}
+Achieving ``successful attack without punishment'' requires overcoming two security layers. At the committee level, the attacker must obtain $>2/3$ validator seats in the target round's random election---a probabilistic event determined by stake proportion that cannot be made certain. At the network level, per Theorem~\ref{thm:punishment_certainty}, once a challenge is initiated and verified, all malicious stakes are fully slashed. To evade punishment, the attacker must control $\geq \lceil N/3 \rceil$ of network voting power to break arbitration liveness by preventing PBFT consensus. This deterministic capital threshold scales linearly with network size as $O(N)$. Since punishment evasion is a logical prerequisite for profitable attack, the total attack cost lower bound is $\frac{1}{3} N \cdot \bar{s}$.
+\end{proof}
+
+This theorem reveals a fundamental security amplification: \textsc{AC-BlockDFL}'s asynchronous audit mechanism elevates the economic barrier from committee-scale $O(C)$ to network-scale $O(N)$. In traditional BlockDFL without post-hoc accountability, attack cost depends solely on controlling a small committee. \textsc{AC-BlockDFL} forces attackers to first solve the problem of countering a $2/3$ honest network majority before mounting any concrete attack. Given typical deployments where $N \gg C$ (e.g., $N=100$, $C=7$ in our experiments), this layered defense provides substantial robustness.
+
+\subsection{Game-Theoretic Analysis}
+\label{sec:game_theory}
+
+We employ game-theoretic analysis to demonstrate that honest behavior constitutes the unique Nash equilibrium for all rational participants under \textsc{AC-BlockDFL}'s economic mechanism.
+
+\paragraph{Attacker Payoff Model.}
+For a rational attacker, the decision problem can be modeled as expected payoff computation in a single-shot game. Let $G_{\text{attack}}$ denote the maximum single-round gain from controlling the committee, and $L_{\text{slash}}$ the stake loss from full slashing. The expected payoff is:
+\begin{equation}
+E[\text{Payoff}] = P_{\text{success}} \cdot G_{\text{attack}} - P_{\text{caught}} \cdot L_{\text{slash}}
+\label{eq:expected_payoff}
+\end{equation}
+where $P_{\text{success}}$ is the probability of controlling the committee in a given round, and $P_{\text{caught}}$ is the probability of detection and punishment. Note that $P_{\text{success}}$ measures election outcomes while $P_{\text{caught}}$ measures detection probability---distinct events at different layers. The attacker can only mount an attack when winning the election; once attacked, Theorems~\ref{thm:detection_completeness}--\ref{thm:punishment_certainty} ensure $P_{\text{caught}} \to 1$ under our dual-layer assumptions. Thus:
+\begin{equation}
+E[\text{Payoff}] = P_{\text{success}} \cdot (G_{\text{attack}} - L_{\text{slash}})
+\label{eq:simplified_payoff}
+\end{equation}
+
+\paragraph{Incentive Compatibility Condition.}
+The sufficient condition for incentive compatibility emerges clearly: whenever $L_{\text{slash}} > G_{\text{attack}}$, expected payoff is strictly negative regardless of $P_{\text{success}}$. Under our endogenous staking model, $L_{\text{slash}} = \lambda \times R_{\text{round}}$ while $G_{\text{attack}}$ is upper-bounded by $C \times R_{\text{round}}$ (monopolizing all validation rewards). Since $\lambda \gg C$ by design, this condition holds stably independent of token market fluctuations.
+
+\paragraph{Numerical Analysis.}
+Using our experimental parameters: committee size $C=7$, per-validator reward $1.0$ units, initial stake $100$ units. Maximum single-round gain $G_{\text{attack}} \leq 7.0$ units. Upon detection, at least 5 colluding members each lose their full 100-unit stake, yielding $L_{\text{slash}} = 500$ units---approximately $71\times$ the potential gain.
+
+\begin{table}[t]
+\centering
+\caption{Attacker payoff matrix under \textsc{AC-BlockDFL}}
+\label{tab:payoff_matrix}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Strategy} & \textbf{Gain} & \textbf{Loss (if detected)} \\
+\midrule
+Honest behavior & $R_{\text{round}}$ (proportional) & 0 \\
+Attack (success) & $\leq 7.0$ units & $500$ units \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This extreme risk-reward asymmetry ensures negative expected payoff even under optimistic attacker assumptions. For $E[\text{Payoff}] < 0$, we require $P_{\text{caught}} > G_{\text{attack}}/L_{\text{slash}} \approx 1.4\%$. Our security theorems guarantee $P_{\text{caught}} \to 1$, far exceeding this minimal threshold.
+
+\paragraph{Nash Equilibrium.}
+Honest behavior constitutes the unique Nash equilibrium: no rational player can improve their payoff by unilaterally deviating to attack. The slashing mechanism breaks the positive feedback loop enabling gradual committee capture attacks~\cite{chiu2018incentive}---instead of accumulating stake through manipulation, attackers suffer substantial stake reduction, permanently eliminating their governance influence. This equilibrium remains stable across all token market conditions due to the endogenous stake pricing design.

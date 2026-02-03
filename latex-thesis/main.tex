@@ -1,0 +1,100 @@
+\documentclass[acmsmall]{acmart}
+
+%%
+%% \BibTeX command to typeset BibTeX logo in the docs
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    Bib\TeX}}}
+
+%% Rights management information.
+\setcopyright{acmlicensed}
+\copyrightyear{2024}
+\acmYear{2024}
+\acmDOI{XXXXXXX.XXXXXXX}
+
+%% Journal information
+\acmJournal{JACM}
+\acmVolume{37}
+\acmNumber{4}
+\acmArticle{111}
+\acmMonth{8}
+
+%% Bibliography style
+\bibliographystyle{ACM-Reference-Format}
+
+\usepackage{lipsum} % For placeholder text
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{amsmath}
+%\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{graphicx}
+
+% Define Theorem environments if not provided by acmart
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{proof_custom}{Proof} % acmart has its own proof environment, but just in case
+
+\begin{document}
+
+%% Title
+\title{AC-BlockDFL: Audit-driven Committee BlockDFL for Secure Federated Learning}
+
+%% Author
+\author{James Lu}
+\email{lujames13@gmail.com}
+\affiliation{%
+  \institution{National Taipei University of Technology}
+  \city{Taipei}
+  \country{Taiwan}
+}
+
+%% Abstract
+\begin{abstract}
+  Blockchain-based Federated Learning (BCFL) faces a critical scalability-security trade-off. While committee-based architectures significantly reduce communication overhead, they introduce a fundamental vulnerability: the \emph{Progressive Committee Capture Attack} (PCCA). In PCCA, rational adversaries exploit the stake-election-reward feedback loop to gradually capture committee control through strategic starvation and stake accumulation. We propose \emph{AC-BlockDFL}, a defense framework that decouples system security from committee honesty through optimistic execution and asynchronous auditing. By internalizing the externalities of malicious behavior via a game-theoretic slashing protocol, AC-BlockDFL ensures that attacks yield negative expected utility. Our evaluation over 2,000 rounds demonstrates that AC-BlockDFL suppresses malicious stake ratios from 1.3$\times$ to 0.37$\times$, reducing unavailability rates from 22.3\% to below 1\% while maintaining $O(C^2)$ communication complexity.
+\end{abstract}
+
+%% CCS Concepts
+\begin{CCSXML}
+<ccs2012>
+ <concept>
+  <concept_id>10002978.10003022.10003023</concept_id>
+  <concept_desc>Security and privacy~Computer systems organization~Distributed systems security</concept_desc>
+  <concept_significance>500</concept_significance>
+ </concept>
+ <concept>
+  <concept_id>10010147.10010178</concept_id>
+  <concept_desc>Computing methodologies~Artificial intelligence</concept_desc>
+  <concept_significance>300</concept_significance>
+ </concept>
+</ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Security and privacy~Distributed systems security}
+\ccsdesc[300]{Computing methodologies~Artificial intelligence}
+
+%% Keywords
+\keywords{Federated Learning, Blockchain, Committee Consensus, Game Theory, Incentive Compatibility}
+
+\maketitle
+
+\input{latex-thesis-chapters/introduction}
+\input{latex-thesis-chapters/background}
+\input{latex-thesis-chapters/related_work}
+\input{latex-thesis-chapters/methodology}
+\input{latex-thesis-chapters/security-analysis}
+\input{latex-thesis-chapters/experiments}
+\input{latex-thesis-chapters/conclusion}
+
+%% Acknowledgments
+\begin{acks}
+  Thanks to everyone.
+\end{acks}
+
+%% Bibliography
+\bibliography{references}
+
+\end{document}

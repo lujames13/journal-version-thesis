@@ -1,0 +1,88 @@
+\section{AC-BlockDFL System Design}
+\label{sec:system_design}
+
+We now present Audit-driven Committee BlockDFL (AC-BlockDFL), a framework that reconciles the efficiency demands of federated learning with provable economic security guarantees. Our design philosophy centers on a fundamental insight: \emph{liveness and security need not be coupled}. Traditional Byzantine fault-tolerant systems conflate these properties, requiring full consensus before any state change. AC-BlockDFL decouples them by assigning efficiency (liveness) to the committee while distributing security enforcement across the entire network through asynchronous auditing.
+
+\subsection{Design Philosophy}
+\label{sec:design_philosophy}
+
+The core tension in blockchain-based federated learning stems from misaligned finality requirements. Financial systems demand immediate, irrevocable correctness for every transaction, necessitating synchronous consensus. However, federated learning's iterative nature---where single-round deviations can be corrected through subsequent training---creates design space for a fundamentally different approach.
+
+AC-BlockDFL exploits this observation through \emph{optimistic execution}: the committee's consensus triggers immediate model updates, while rigorous verification proceeds asynchronously in the background. Security emerges not from preventing malicious behavior \emph{a priori}, but from ensuring that any detectable misbehavior incurs economic penalties that far exceed potential gains. This shifts the security model from threshold-based guarantees (requiring honest majorities) to \emph{economic security} (requiring only that attackers be rational).
+
+\subsection{System Architecture and Workflow}
+\label{sec:workflow}
+
+AC-BlockDFL extends the BlockDFL committee model (Section~\ref{sec:blockdfl-baseline}) with three architectural innovations: (1) a fourth participant role---the \emph{Challenger}---responsible for post-hoc auditing; (2) off-chain storage integration via IPFS to reduce on-chain overhead from $O(\text{ModelSize})$ to $O(\text{HashSize})$; and (3) an asynchronous audit window that enables network-wide arbitration without blocking normal operation. Figure~\ref{fig:ac_blockdfl_arch} illustrates the complete workflow.
+
+\begin{figure}[t]
+  \centering
+  \fbox{System Architecture Diagram Placeholder}
+  \caption{AC-BlockDFL System Architecture and Workflow. The committee (Validators $\mathcal{V}$) performs optimistic execution while the Challenger network performs asynchronous auditing.}
+  \label{fig:ac_blockdfl_arch}
+\end{figure}
+
+\paragraph{Instant Update Protocol.}
+Algorithm~\ref{alg:ac_blockdfl_execution} formalizes the protocol's ``happy path.'' Each round proceeds through four phases: (1)~\emph{Role Assignment}---stake-weighted random selection determines validators $\mathcal{V}$, aggregators $\mathcal{A}$, and update providers $\mathcal{U}$ using the previous block hash as randomness source; (2)~\emph{Training and Off-chain Storage}---providers train locally, aggregators collect updates into proposals, upload to IPFS, and submit Content Identifiers (CIDs) on-chain; (3)~\emph{Consensus and Instant Commit}---validators retrieve proposals via CIDs, execute Krum scoring~\cite{blanchard2017machine}, and vote via PBFT, with the winning model $w_{r+1}$ committed \emph{immediately} upon achieving $>\frac{2}{3}$ agreement; (4)~\emph{Audit Window Opens}---the asynchronous challenge period begins, with participating nodes pinning relevant IPFS data for its duration.
+
+\begin{algorithm}[t]
+\caption{AC-BlockDFL Execution Protocol}
+\label{alg:ac_blockdfl_execution}
+\begin{algorithmic}[1]
+\Require Round $r$, stake-weighted nodes $\mathcal{N}$
+\Ensure Updated global model $w_{r+1}$
+\State \textbf{Phase 1:} Select $\mathcal{V}, \mathcal{A}, \mathcal{U} \subset \mathcal{N}$ via stake-weighted randomness
+\State \textbf{Phase 2:} Each $u \in \mathcal{U}$ trains on local data; $a \in \mathcal{A}$ aggregates into proposal $p_a$
+\State \hspace{1.1em} Upload $p_a$ to IPFS $\rightarrow$ obtain $\text{CID}_a$; submit $\text{CID}_a$ on-chain
+\State \textbf{Phase 3:} $\mathcal{V}$ retrieves $\{p_a\}$ via CIDs, runs Krum, votes via PBFT
+\State \hspace{1.1em} \textbf{Commit} $w_{r+1}$ immediately; record winning $\text{CID}^*$ and voter identities
+\State \textbf{Phase 4:} Audit window opens; nodes pin IPFS data
+\end{algorithmic}
+\end{algorithm}
+
+The critical design choice is \emph{immediate commitment}: unlike systems that impose confirmation delays, AC-BlockDFL prioritizes liveness by allowing the committee's decision to take effect instantly. Security is enforced through the challenge mechanism described next.
+
+\paragraph{Off-chain Storage.}
+Model updates typically exceed standard transaction sizes by orders of magnitude. AC-BlockDFL stores gradient and weight data on IPFS, recording only the CID and metadata on-chain. Nodes pin relevant data during the audit window and unpin afterward, balancing data availability requirements against long-term storage costs.
+
+\subsection{Challenge Mechanism}
+\label{sec:challenge_mechanism}
+
+The Challenger role is open to any network participant willing to stake the required deposit, ensuring surveillance power remains distributed rather than concentrated. Challengers continuously monitor on-chain records, retrieve proposals from IPFS via their CIDs, and independently re-execute the Krum algorithm. Since Krum is fully deterministic---identical inputs yield identical outputs---any discrepancy between the committee's selection and the correct result constitutes irrefutable evidence of misbehavior.
+
+\paragraph{Challenge Protocol.}
+Algorithm~\ref{alg:ac_blockdfl_challenge} details the challenge flow. Upon detecting a mismatch, a challenger submits a challenge transaction with deposit $D_{\text{challenge}}$, triggering network-wide arbitration. All nodes download the relevant IPFS data and independently verify. If $>\frac{2}{3}$ of the network confirms malicious consensus, colluding committee members face \emph{full stake slashing}, with rewards distributed to the challenger and honest participants. Failed challenges result in deposit forfeiture, preventing denial-of-service attacks through spurious challenges.
+
+\begin{algorithm}[t]
+\caption{Asynchronous Challenge Mechanism}
+\label{alg:ac_blockdfl_challenge}
+\begin{algorithmic}[1]
+\Require Challenger $ch$, on-chain CID references, IPFS store
+\Ensure Punishment for malicious committee actions
+\State $ch$ retrieves proposal CIDs from chain, downloads $\{p_a\}$ from IPFS
+\State $ch$ re-executes Krum on $\{p_a\}$
+\If{outcome mismatches committed $w_{r+1}$}
+    \State $ch$ posts challenge transaction with deposit $D_{\text{challenge}}$
+    \State \textbf{Arbitration:} All nodes verify independently
+    \If{malicious consensus confirmed by $> \frac{2}{3}$ of network}
+        \State \textbf{Slash} full stake of colluding validators $\mathcal{V}_{\text{mal}}$
+        \State Reward $ch$; distribute remainder to honest participants
+    \Else
+        \State Forfeit $ch$'s deposit
+    \EndIf
+\EndIf
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Dynamic Staking Model.}
+A key design principle is that all economic parameters derive from \emph{endogenous} system metrics, avoiding external oracle dependencies that could become attack vectors. The maximum rational gain from committee capture is bounded by the round reward $R_{\text{round}}$. We therefore define the slashing amount as:
+\begin{equation}
+D_{\text{slash}} = \lambda \times R_{\text{round}}, \quad \lambda \gg 1
+\label{eq:slash_amount}
+\end{equation}
+where $\lambda$ is the penalty multiplier. In our implementation, validators stake 100 units with per-round rewards of approximately 1.0 unit, yielding an effective $\lambda \approx 100$---a single slashing event costs the equivalent of 100 rounds of honest participation. This extreme asymmetry eliminates the economic incentive for rational attackers.
+
+The challenge deposit $D_{\text{challenge}} = \alpha \times R_{\text{round}}$ follows similar logic, with $\alpha$ calibrated to cover arbitration costs ($\geq N_{\text{arb}} \cdot \epsilon$ for $N_{\text{arb}}$ arbitrating nodes and per-verification cost $\epsilon$) while remaining accessible to potential challengers. Since both penalties and thresholds scale with $R_{\text{round}}$, the mechanism self-adjusts to varying network economic conditions without external price feeds.
+
+\paragraph{No-Rollback Policy.} \label{sec:no_rollback}
+When arbitration confirms misbehavior, AC-BlockDFL slashes malicious actors but \emph{does not revert} the committed model update. This design choice reflects two considerations. First, rollback fundamentally conflicts with blockchain finality guarantees and opens attack vectors such as long-range attacks. Second, given the potential delay between commitment and arbitration completion, rollback would require reverting potentially hundreds of subsequent blocks---destroying intermediate transaction finality and requiring complex distributed coordination for state recovery. Instead, we employ \emph{forward correction}: severe economic penalties deter future attacks, while honest training in subsequent rounds gradually corrects any model trajectory deviation. Section~\ref{sec:evaluation} empirically demonstrates that under effective deterrence, long-term model quality converges to attack-free baselines.

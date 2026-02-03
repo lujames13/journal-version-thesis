@@ -1,0 +1,14 @@
+% 英文摘要頁
+\begin{EnAbstract}
+    \begin{EnAbstractItems}
+        % 關鍵詞，請自己填，多個關鍵字以逗號 "," 隔開
+        \noindent \text Keyword: Blockchain, Federated Learning, Committee Capture, Verifier Collusion
+
+    \end{EnAbstractItems}
+
+    \begin{EnAbstractDescription}
+        Blockchain-based Federated Learning (BCFL) addresses trust and privacy concerns through decentralized consensus mechanisms. Existing BCFL systems rely on committee-based validation architectures, assuming that committee members are honest or possess an honest majority. This assumption is vulnerable to verifier collusion, where attackers can dominate committees by accumulating stake. We identify a novel threat called Progressive Committee Capture Attack (PCCA), in which rational attackers exploit incentive mechanisms to gradually accumulate stake and occupy sufficient committee seats to launch coordinated attacks. Once an attacker obtains a committee majority, existing architectures fail to detect or prevent such attacks. To defend against PCCA, we propose Audit-driven Committee BlockDFL (AC-BlockDFL), which decouples security from committee composition: a small committee handles routine validation to provide liveness, while a challenge mechanism supported by global consensus ensures security guarantees. Any malicious aggregation behavior triggers cryptographic verification and slashing penalties, resulting in the immediate confiscation of all staked assets from the colluding committee members. This mechanism shifts the security threshold from a committee majority to global consensus, breaking the positive feedback loop of stake accumulation relied upon by attackers. In a long-term simulation experiment of 2000 rounds, this mechanism suppressed the number of successful attacks from 107 to 5, achieving over 20 times the attack suppression effect compared to existing methods. Our decoupled design also allows for smaller committee sizes, enhancing computational efficiency without compromising security.
+    \end{EnAbstractDescription}
+    
+\end{EnAbstract}
+
