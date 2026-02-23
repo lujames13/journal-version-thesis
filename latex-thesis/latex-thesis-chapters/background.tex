@@ -8,7 +8,7 @@ This section establishes the theoretical foundations and technical background ne
 
 Federated learning (FL) represents a paradigm shift in distributed machine learning, encapsulating the principle of ``bringing the model to the data'' rather than aggregating data centrally~\cite{mcmahan2017communication}. While FL significantly enhances data privacy by locally constraining raw data, its standard architecture relies on a fundamental assumption: participants must trust a central aggregation server to honestly execute aggregation and uniformly distribute results. 
 
-In the absence of verifiable consistency, the central server constitutes a single point of failure and a primary vulnerability. A malicious or compromised server could perform selective aggregation, intentionally excluding specific updates, or directly tamper with the global model to inject backdoors~\cite{bagdasaryan2020how}. Furthermore, while FL avoids direct data transmission, a malicious aggregator can still infer sensitive information from client updates~\cite{zhu2019deep}. This trust dilemma severely restricts the deployment of FL in high-value, cross-organizational scenarios where participating entities may be independent or competitive, necessitating a decentralized trust infrastructure.
+In the absence of verifiable consistency, the central server constitutes a single point of failure and a primary vulnerability. A malicious or compromised server could perform selective aggregation, intentionally excluding specific updates, or directly tamper with the global model to inject backdoors~\cite{bagdasaryan2020how, fang2020local}. Furthermore, while FL avoids direct data transmission, a malicious aggregator can still infer sensitive information from client updates~\cite{zhu2019deep, geiping2020inverting}. This trust dilemma severely restricts the deployment of FL in high-value, cross-organizational scenarios where participating entities may be independent or competitive, necessitating a decentralized trust infrastructure~\cite{lu2020blockchain, kairouz2021advances}.
 
 \subsection{Byzantine Fault Tolerance Fundamentals}
 \label{sec:bft-fundamentals}
@@ -22,7 +22,7 @@ Practical Byzantine Fault Tolerance (PBFT)~\cite{castro1999practical} reduces th
 \subsection{Committee-based BCFL Architecture}
 \label{sec:committee-bcfl}
 
-To reconcile the efficiency demands of federated learning with the security requirements of blockchain, the \emph{committee-based architecture} has emerged as the prevailing design paradigm. By delegating consensus responsibilities to a smaller, representative subset of nodes (the committee), these systems reduce communication complexity from $O(N^2)$ to $O(C^2 + N)$ where the committee size $C \ll N$~\cite{ren2024scalable}.
+To reconcile the efficiency demands of federated learning with the security requirements of blockchain, the \emph{committee-based architecture} has emerged as the prevailing design paradigm. By delegating consensus responsibilities to a smaller, representative subset of nodes (the committee), these systems reduce communication complexity from $O(N^2)$ to $O(C^2 + N)$ where the committee size $C \ll N$~\cite{ren2024scalable, li2021blockchain, nguyen2024fedblock}.
 
 \paragraph{Baseline System Model: BlockDFL.} \label{sec:blockdfl-baseline}
 We adopt BlockDFL~\cite{qin2024blockdfl} as our baseline system model, representing the state-of-the-art in peer-to-peer BCFL. BlockDFL implements role separation, partitioning participants into three distinct roles per training round:
