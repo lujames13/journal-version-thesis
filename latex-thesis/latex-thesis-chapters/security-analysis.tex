@@ -1,12 +1,38 @@
-\section{Security and Economic Analysis}
+\section{Threat Model and Security Analysis}
 \label{sec:security_analysis}
 
-The security of \textsc{AC-BlockDFL} rests on a dual-layer trust model that achieves network-wide security guarantees while maintaining committee-scale efficiency. This section formalizes these guarantees through three theorems and establishes incentive compatibility via game-theoretic analysis.
+The security of \textsc{AC-BlockDFL} rests on mitigating sophisticated, economically-driven vulnerabilities while maintaining committee-scale efficiency. In this section, we formalize the adversary model, define the Progressive Committee Capture Attack (PCCA), and establish the dual-layer security guarantees and game-theoretic incentive compatibility of our framework.
+
+\subsection{Threat Model and Adversary Capabilities}
+\label{sec:threat_model}
+
+Unlike traditional Byzantine fault tolerance research that assumes purely destructive behavior, our threat model considers a \emph{Rational Adversary} whose primary objective is long-term economic utility maximization and governance control. This aligns with realistic blockchain incentive structures. 
+
+\paragraph{Capabilities.} The adversary controls a fraction of the network nodes, denoted by $f$, where typically $f \leq 0.3$. These malicious nodes are not isolated; they can collude, coordinate voting strategies, and share information. Crucially, the adversary is highly strategic: malicious nodes can perfectly emulate honest behavior to build reputation and accumulate resources during early stages, instantly switching to malicious actions when an advantageous opportunity arises. Furthermore, the adversary has full visibility into the public blockchain state, including stake distributions and historical committee components.
+
+\paragraph{Limitations.} The adversary is constrained by standard cryptographic assumptions (e.g., unforgeable digital signatures, collision-resistant hash functions) and cannot tamper with immutable historical records on the blockchain. Furthermore, the adversary cannot command an absolute network majority (e.g., $>50\%$) due to the prohibitively high capital costs. Finally, their actions are governed by economic rationality; they will not execute attacks where the expected financial penalty strictly outweighs the potential gains.
+
+\subsection{Progressive Committee Capture Attack (PCCA)}
+\label{sec:pcca}
+
+Current BlockDFL defenses overwhelmingly focus on data-plane attacks (e.g., data poisoning), relying on robust aggregation algorithms like Krum~\cite{blanchard2017machine} or Trimmed Mean~\cite{yin2018byzantine}. However, these algorithms implicitly assume that the validators executing them are honest. We formalize the \emph{Progressive Committee Capture Attack (PCCA)}, a consensus-plane vulnerability that exploits the positive feedback loop of stake-based committee selections: ``Stake $\rightarrow$ Election $\rightarrow$ Reward $\rightarrow$ Stake''. By subverting the committee, PCCA enables attackers to entirely bypass data-plane defenses. The attack unfolds in two distinct phases:
+
+\paragraph{Phase 1: Lurking (Shadow Mode).}
+Because committee selection relies on stake-weighted random sampling, gaining a majority requires significant capital or chance. In this phase, the adversary strictly adheres to protocol rules---submitting high-quality model updates and verifying proposals honestly. This patience allows the adversary to accumulate baseline stake and evade anomaly detection. The adversary waits for a serendipitous election window where malicious nodes coincidentally obtain a supermajority (e.g., $>2/3$) of the seats in a single committee.
+
+\paragraph{Phase 2: Occupying (Capture Mode).}
+Upon securing a committee supermajority, the adversary drops the honest facade. The specific execution depends on the alignment of the current round's aggregator:
+\begin{itemize}
+    \item \textbf{Strategic Starvation}: If the aggregator is honest, the malicious committee executes a denial-of-service by systematically voting against valid, high-quality proposals. Consequently, honest aggregators and data providers are denied their block rewards. This starvation stunts the stake growth of honest participants, mathematically guaranteeing that the adversary captures a disproportionately larger share of the systemic inflation. Over successive rounds, this inflates the adversary's probability of being selected for future committees.
+    \item \textbf{Full Stack Poisoning}: If the aggregator is also controlled by the adversary, they achieve ``full-stack control.'' The malicious aggregator deliberately accepts poisoned model updates (e.g., backdoor triggers or flipped labels), and the malicious committee force-approves the proposal. This directly degrades the global model's accuracy while monopolizing the round's rewards.
+\end{itemize}
+
+Through PCCA, the adversary's relative stake advantage over honest nodes dynamically shifts, converging to a steady-state advantage $\lim_{t \to \infty} \frac{S_{mal}(t)}{S_{hon}(t)} = \alpha \cdot \frac{S_{mal}(0)}{S_{hon}(0)}$ (where $\alpha > 1$ represents the reward control factor). This locks the system into a permanent governance imbalance, transforming a decentralized network into an oligarchy.
 
 \subsection{Security Guarantees}
 \label{sec:security_guarantees}
 
-Our security model comprises two layers with distinct trust assumptions: a \emph{detection layer} requiring only a single honest challenger, and an \emph{arbitration layer} leveraging standard Byzantine fault tolerance.
+Our security model comprises two layers with distinct trust assumptions designed specifically to break the PCCA feedback loop: a \emph{detection layer} requiring only a single honest challenger, and an \emph{arbitration layer} leveraging standard Byzantine fault tolerance.
 
 \paragraph{Detection Layer: 1-of-$N$ Honest Assumption.}
 The detection layer operates under an exceptionally weak assumption: among all $N$ network participants, at least one honest node is willing to act as a challenger. This is substantially weaker than the $2/3$ honest majority required by traditional BFT systems, as it requires only the \emph{existence} of a single honest participant rather than coordinated action by a majority. The feasibility of this assumption stems from blockchain's transparency---all proposal CIDs are recorded on-chain with corresponding data publicly accessible via IPFS, enabling any node to independently verify committee decisions.

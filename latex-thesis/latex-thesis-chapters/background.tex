@@ -1,104 +1,41 @@
-\section{Background \& Problem Statement}
+\section{Background}
 \label{sec:background}
 
-This section establishes the system model and threat landscape for committee-based blockchain federated learning (BCFL). We first formalize the committee architecture using BlockDFL~\cite{qin2024blockdfl} as our reference model, then define the adversary model and the Progressive Committee Capture Attack (PCCA) that exploits stake-driven incentive mechanisms.
+This section establishes the theoretical foundations and technical background necessary for understanding the security challenges in committee-based blockchain federated learning. We first discuss the fundamental trust dilemma in federated learning, then introduce the principles of Byzantine fault tolerance, and finally establish the baseline system model for committee-based architectures.
 
-\subsection{Committee-based Blockchain Federated Learning}
+\subsection{Federated Learning and the Trust Dilemma}
+\label{sec:fl-trust}
+
+Federated learning (FL) represents a paradigm shift in distributed machine learning, encapsulating the principle of ``bringing the model to the data'' rather than aggregating data centrally~\cite{mcmahan2017communication}. While FL significantly enhances data privacy by locally constraining raw data, its standard architecture relies on a fundamental assumption: participants must trust a central aggregation server to honestly execute aggregation and uniformly distribute results. 
+
+In the absence of verifiable consistency, the central server constitutes a single point of failure and a primary vulnerability. A malicious or compromised server could perform selective aggregation, intentionally excluding specific updates, or directly tamper with the global model to inject backdoors~\cite{bagdasaryan2020how}. Furthermore, while FL avoids direct data transmission, a malicious aggregator can still infer sensitive information from client updates~\cite{zhu2019deep}. This trust dilemma severely restricts the deployment of FL in high-value, cross-organizational scenarios where participating entities may be independent or competitive, necessitating a decentralized trust infrastructure.
+
+\subsection{Byzantine Fault Tolerance Fundamentals}
+\label{sec:bft-fundamentals}
+
+Blockchain technology, characterized by immutability, transparency, and decentralization, serves as an ideal infrastructure to resolve the FL trust dilemma. However, the security of blockchain fundamentally relies on consensus protocols designed to tolerate malicious behavior, rooted in the Byzantine Generals Problem~\cite{lamport1982byzantine}.
+
+The mathematical constraint of Byzantine Fault Tolerance (BFT) dictates that a system of $N$ nodes can tolerate at most $f$ malicious nodes, requiring $N \geq 3f + 1$. This one-third threshold originates from the \emph{quorum intersection principle}: to ensure sufficient honest endorsements, any decision needs $2f+1$ confirmations. The intersection of any two $2f+1$ sets guarantees the inclusion of at least $f+1$ nodes, meaning at least one honest node witnesses both decisions, preventing contradictory states.
+
+Practical Byzantine Fault Tolerance (PBFT)~\cite{castro1999practical} reduces the communication complexity of BFT consensus to $O(N^2)$ through a three-phase commit protocol (Pre-prepare, Prepare, Commit). While efficient for small networks, the quadratic communication cost becomes a severe bottleneck for large-scale FL systems requiring frequent iterations involving hundreds of participants.
+
+\subsection{Committee-based BCFL Architecture}
 \label{sec:committee-bcfl}
 
-Committee-based BCFL systems delegate consensus responsibility to a small, representative subset of participants rather than requiring all-node BFT consensus. This design reduces communication complexity from $O(N^2)$ to $O(C^2 + N)$ where $C \ll N$, making frequent FL iterations practical while maintaining Byzantine fault tolerance within the committee~\cite{ren2024scalable}.
+To reconcile the efficiency demands of federated learning with the security requirements of blockchain, the \emph{committee-based architecture} has emerged as the prevailing design paradigm. By delegating consensus responsibilities to a smaller, representative subset of nodes (the committee), these systems reduce communication complexity from $O(N^2)$ to $O(C^2 + N)$ where the committee size $C \ll N$~\cite{ren2024scalable}.
 
-\paragraph{BlockDFL Architecture.} \label{sec:blockdfl-baseline}
-We adopt BlockDFL~\cite{qin2024blockdfl} as our baseline system, representing the state-of-the-art in fully decentralized peer-to-peer federated learning. BlockDFL employs \emph{role separation}, partitioning participants into three roles per training round: \textbf{Update Providers} perform local training on private data and submit model updates; \textbf{Aggregators} collect, filter, and aggregate updates into global proposals; and \textbf{Validators} form the committee that evaluates proposals via BFT consensus using Krum scoring~\cite{blanchard2017machine}.
+\paragraph{Baseline System Model: BlockDFL.} \label{sec:blockdfl-baseline}
+We adopt BlockDFL~\cite{qin2024blockdfl} as our baseline system model, representing the state-of-the-art in peer-to-peer BCFL. BlockDFL implements role separation, partitioning participants into three distinct roles per training round:
+\begin{enumerate}
+    \item \textbf{Update Providers}: Execute local model training on private data and submit bounded updates.
+    \item \textbf{Aggregators}: Collect updates, perform filtering, and compute the aggregated global proposal.
+    \item \textbf{Validators}: Form the committee to evaluate competing proposals via Krum scoring~\cite{blanchard2017machine} and execute PBFT consensus to select the final model.
+\end{enumerate}
 
 \paragraph{The Stake-Election-Reward Cycle.}
-Role assignment in BlockDFL follows a \emph{stake-weighted deterministic random selection} mechanism: the previous block's hash maps onto a hash ring where each participant occupies space proportional to their stake. This creates a closed-loop incentive system:
-\begin{enumerate}[leftmargin=*,nosep]
-    \item \textbf{Stake} determines election probability—higher-stake nodes are more likely to be selected as Aggregators or Validators.
-    \item \textbf{Election} assigns roles based on the deterministic hash mapping, ensuring verifiable yet unpredictable outcomes.
-    \item \textbf{Reward} is distributed only to contributors of the accepted proposal: the winning Aggregator, Update Providers whose updates were included, and Validators who voted in favor.
-\end{enumerate}
-This mechanism creates a \emph{positive feedback loop}: nodes receiving rewards accumulate stake, increasing their future election probability, which in turn yields more rewards. While designed to incentivize honest participation, this feedback property becomes the foundation for the attack we analyze.
-
-\subsection{Threat Model}
-\label{sec:threat-model}
-
-\paragraph{Adversary Classification.}
-We consider a \emph{rational adversary} whose behavior is governed by economic self-interest, in contrast to the Byzantine adversary that may act arbitrarily regardless of cost. Formally:
-\begin{itemize}[leftmargin=*,nosep]
-    \item \textbf{Byzantine Adversary}: May exhibit arbitrary malicious behavior even at personal loss; the standard assumption in distributed systems worst-case analysis.
-    \item \textbf{Rational Adversary}: Optimizes expected payoff; attacks only when $\mathbb{E}[\text{Payoff}] > 0$. This model better captures real-world incentive-driven threats.
+Role assignment in BlockDFL relies on \emph{stake-weighted deterministic random selection}, using the previous block's hash as an unpredictable entropy source mapping onto a stake-weighted hash ring. This creates a critical economic incentive structure designed to solve the free-rider problem:
+\begin{itemize}
+    \item \textbf{Stake}: Determines election probability; participants with higher stake bounds are proportionally more likely to be selected as Aggregators or Validators.
+    \item \textbf{Reward}: Distributed exclusively to contributors of the accepted proposal (the winning Aggregator, included Update Providers, and Validators who voted for it).
 \end{itemize}
-The rational adversary's goals are hierarchical: immediate \emph{economic extraction} (monopolizing training rewards), leading to \emph{stake accumulation}, ultimately achieving \emph{network control} (persistent committee influence).
-
-\paragraph{Adversary Capabilities and Constraints.}
-We assume the adversary controls a fraction $f \leq 0.3$ of network nodes ($M = f \cdot N$ malicious nodes). Controlled nodes can coordinate strategies and adaptively switch between honest and malicious behavior based on system state. The adversary has full visibility of on-chain information (stake distributions, election outcomes, historical behavior).
-
-However, the adversary cannot: (1) break cryptographic primitives or forge signatures; (2) tamper with committed blockchain history; (3) prevent other nodes from independently verifying aggregation correctness. These constraints inform our defense design.
-
-\subsection{Progressive Committee Capture Attack (PCCA)}
-\label{sec:pcca}
-
-PCCA is a two-phase economic attack that exploits the stake-election-reward feedback loop to gradually subvert committee control without requiring an initial majority.
-
-\paragraph{Phase 1: Lurking (Shadow Mode).}
-During the lurking phase, adversarial nodes behave indistinguishably from honest participants: they submit high-quality model updates as Update Providers, correctly execute aggregation as Aggregators, and vote honestly as Validators. This strategy serves dual purposes: (1) accumulating stake through legitimate rewards, and (2) building reputation to evade behavioral anomaly detection. The adversary monitors committee composition each round, waiting for the critical condition: $\rho = \frac{|\mathcal{V} \cap \mathcal{C}_{adv}|}{|\mathcal{V}|} > \frac{2}{3}$, where $\mathcal{V}$ is the current committee and $\mathcal{C}_{adv}$ denotes adversary-controlled nodes.
-
-\paragraph{Phase 2: Capture (Starvation Mode).}
-Once the adversary controls $>2/3$ committee seats, the attack transitions to active exploitation via \emph{strategic starvation}:
-
-\begin{itemize}[leftmargin=*,nosep]
-    \item \textbf{Strategic Starvation}: When the Aggregator is honest, the malicious committee systematically rejects legitimate proposals, denying rewards to honest Update Providers and Aggregators. The attack is economically devastating yet technically subtle—training continues (albeit suboptimally), making detection difficult.
-    
-    \item \textbf{Full-Stack Poisoning}: When the adversary also controls the Aggregator, they achieve end-to-end control. Malicious updates bypass all Byzantine-robust defenses (which are executed by the compromised committee), directly corrupting the global model while securing all rewards.
-\end{itemize}
-
-Algorithm~\ref{alg:pcca} formalizes the adversary's decision logic.
-
-\begin{algorithm}[t]
-\caption{PCCA Decision Logic}
-\label{alg:pcca}
-\begin{algorithmic}[1]
-\Require Committee $\mathcal{V}$, adversary nodes $\mathcal{C}_{adv}$
-\State $\rho \gets |\mathcal{V} \cap \mathcal{C}_{adv}| / |\mathcal{V}|$
-\If{$\rho \leq 2/3$} \Comment{Shadow Mode}
-    \State Follow protocol honestly; accumulate stake
-\Else \Comment{Capture Mode}
-    \If{Aggregator $\in \mathcal{C}_{adv}$}
-        \State Execute full-stack poisoning
-    \Else
-        \State Execute strategic starvation
-    \EndIf
-\EndIf
-\end{algorithmic}
-\end{algorithm}
-
-\paragraph{The Feedback Loop: Stake Dynamics Under Attack.}
-Let $S_{mal}(t)$ and $S_{hon}(t)$ denote the aggregate stake of malicious and honest nodes at round $t$, with initial adversary fraction $f_0 = S_{mal}(0)/(S_{mal}(0) + S_{hon}(0)) = 0.3$. During capture phases, the adversary gains a multiplicative advantage $\alpha > 1$ in reward acquisition. However, because honest nodes can still receive partial rewards as Update Providers (even when their proposals are rejected), stake growth is bounded rather than exponential. The dynamics converge to:
-\begin{equation}
-    \lim_{t \to \infty} \frac{S_{mal}(t)}{S_{hon}(t)} = \alpha \cdot \frac{S_{mal}(0)}{S_{hon}(0)}
-    \label{eq:stake-dynamics}
-\end{equation}
-where $\alpha \in [1.1, 1.2]$ empirically. This establishes a \emph{persistent leadership advantage}: while the adversary cannot achieve complete monopoly, they maintain elevated committee capture probability indefinitely—a ``soft oligopoly'' that fundamentally undermines decentralization without triggering obvious failure modes.
-
-\paragraph{Distinction from Data-Layer Attacks.}
-PCCA differs fundamentally from traditional Byzantine attacks (Table~\ref{tab:attack-comparison}): it targets \emph{governance} rather than model quality, employs \emph{progressive infiltration} rather than immediate poisoning, and exhibits \emph{self-reinforcing} dynamics through stake accumulation. Crucially, once the consensus layer is compromised, all data-layer defenses (Krum, Trimmed Mean, etc.) become ineffective—they are executed by the very committee the adversary controls.
-
-\begin{table}[t]
-\centering
-\caption{PCCA vs. Traditional Byzantine Attacks}
-\label{tab:attack-comparison}
-\small
-\begin{tabular}{lcc}
-\toprule
-\textbf{Property} & \textbf{Byzantine Attack} & \textbf{PCCA} \\
-\midrule
-Target & Model quality & Network control \\
-Motivation & Disruption & Profit maximization \\
-Strategy & Direct poisoning & Progressive infiltration \\
-Stealth & Low & High (honest during lurking) \\
-Self-reinforcing & No & Yes (stake feedback) \\
-Defense & Data-layer filtering & Incentive-compatible mechanisms \\
-\bottomrule
-\end{tabular}
-\end{table}
+This mechanism instantiates a \emph{positive feedback loop}: receiving rewards increases absolute stake, which enhances future election probability and aggregation weight, thereby amplifying the likelihood of subsequent rewards. While intended to cultivate long-term honest contributions, this very dynamic introduces vulnerabilities to strategic persistence.
